@@ -1,4 +1,4 @@
-from sympy import *
+import sympy as sp
 from bases import *
 from targets import *
 
