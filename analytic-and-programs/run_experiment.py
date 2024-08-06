@@ -10,7 +10,7 @@ if __name__=='__main__':
     args = parser.parse_args()
 
     experiment_collection = ExperimentCollection(args.collection_name)
-    with open(experiments_folder + args.collection_name + '.json', 'r') as f:
+    with open(content_folder + args.parameters + '.json', 'r') as f:
         parameters = json.load(f)
         for experiment_params in parameters['collection']:
             experiment_collection.push(Experiment(**experiment_params))
