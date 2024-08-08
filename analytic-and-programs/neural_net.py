@@ -181,78 +181,87 @@ class OccamNet(torch.nn.Module):
         return routing_results[:,:,-1], routing_probability, routing_results[:,:,:-1]
 
     def forward_routing_with_skip_connections(self, x):
-        routing_logits = torch.empty([self.sampling_size, len(self.layers), self.arg_layer_size]).to(self.device)
-        routing_sample = torch.zeros([self.sampling_size, len(self.layers), \
-                                      self.arg_layer_size]).type(torch.LongTensor).to(self.device)
-        routing_results = torch.empty([self.sampling_size, x.shape[0], self.recurrence_depth, self.number_of_outputs]).to(self.device)
-        routing_probabilities = torch.empty([self.sampling_size, len(self.layers), self.arg_layer_size]).to(self.device)
+    routing_logits = torch.empty([self.sampling_size, len(self.layers), self.arg_layer_size]).to(self.device)
+    routing_sample = torch.zeros([self.sampling_size, len(self.layers), self.arg_layer_size]).type(torch.LongTensor).to(self.device)
+    routing_results = torch.empty([self.sampling_size, x.shape[0], self.recurrence_depth, self.number_of_outputs]).to(self.device)
+    routing_probabilities = torch.empty([self.sampling_size, len(self.layers), self.arg_layer_size]).to(self.device)
 
-        # SAMPLE ROUTES
-        for l, layer in enumerate(self.layers):
-            temperature = self.temperature if l != len(self.hidden) - 1 else self.last_layer_temperature
-            weights = F.softmax((1.0 / temperature) * layer.weight, dim=1).T
-            sample = Categorical(weights.T).sample([self.sampling_size])
-            probabilities = torch.gather(weights, 0, sample)
+    # SAMPLE ROUTES
+    for l, layer in enumerate(self.layers):
+        temperature = self.temperature if l != len(self.hidden) - 1 else self.last_layer_temperature
+        weights = F.softmax((1.0 / temperature) * layer.weight, dim=1).T
+        sample = Categorical(weights.T).sample([self.sampling_size])
+        probabilities = torch.gather(weights, 0, sample)
 
-            if l == len(self.layers) - 1:
-                routing_logits[:, l, :self.number_of_outputs] = torch.log(probabilities)
-                routing_probabilities[:, l, :self.number_of_outputs] = probabilities
-                routing_sample[:, l, :self.number_of_outputs] = sample
-            else:
-                routing_logits[:, l, :] = torch.log(probabilities)
-                routing_probabilities[:, l, :] = probabilities
-                routing_sample[:, l, :] = sample
+        if l == len(self.layers) - 1:
+            routing_logits[:, l, :self.number_of_outputs] = torch.log(probabilities)
+            routing_probabilities[:, l, :self.number_of_outputs] = probabilities
+            routing_sample[:, l, :self.number_of_outputs] = sample
+        else:
+            routing_logits[:, l, :] = torch.log(probabilities)
+            routing_probabilities[:, l, :] = probabilities
+            routing_sample[:, l, :] = sample
 
-        # PROBABILITY OF EACH ROUTE
-        past_logits = [torch.zeros([self.sampling_size, self.number_of_inputs])]   # this starts with the input node
-        for l, layer in enumerate(self.layers):
-            routes = routing_sample[:, l]
-            logit_imgs = torch.cat(past_logits, 1)   # uses old images as skip connections
-            logit_args = torch.gather(logit_imgs, 1, routes) + routing_logits[:, l]
-            if l == len(self.layers) - 1:
-                break
-            logit_imgs = torch.zeros([self.sampling_size, self.img_layer_size])
+    # PROBABILITY OF EACH ROUTE
+    past_logits = [torch.zeros([self.sampling_size, self.number_of_inputs])]   # this starts with the input node
+    for l, layer in enumerate(self.layers):
+        routes = routing_sample[:, l]
+        logit_imgs = torch.cat(past_logits, 1)   # uses old images as skip connections
+        logit_args = torch.gather(logit_imgs, 1, routes) + routing_logits[:, l]
+        if l == len(self.layers) - 1:
+            break
+        logit_imgs = torch.zeros([self.sampling_size, self.img_layer_size])
+        args_idx = 0
+        for i, (f, arity) in enumerate(self.torch_bases):
+            logit_arguments = logit_args[:, args_idx: (args_idx + arity)]
+            logit_imgs[:, i] += torch.sum(logit_arguments, dim=1)
+            args_idx += arity
+        past_logits = [logit_imgs] + past_logits
+
+    routing_probability = torch.exp(logit_args[:, 0:self.number_of_outputs])
+
+    # RESULT FROM EACH ROUTE
+    xr = x.unsqueeze(0).repeat(self.sampling_size, 1, 1)
+    routing_sample = routing_sample.unsqueeze(1).repeat(1, x.shape[0], 1, 1)
+    for d in range(self.recurrence_depth):
+        # AUGMENT INPUT WITH CONSTANTS
+        for constant in self.torch_constants:
+            constant_layer = torch.full((xr.shape[0], xr.shape[1], 1), constant)
+            xr = torch.cat((xr, constant_layer), dim=2)
+
+        # AUGMENT WITH DEPTH COUNTER
+        for counter in range(self.depth_counter):
+            counter_layer = torch.full((xr.shape[0], xr.shape[1], 1), d)
+            xr = torch.cat((xr, counter_layer), dim=2)
+
+        # Debug print statements
+        print("Shape of xr:", xr.shape)
+        print("Shape of routing_sample:", routing_sample.shape)
+        print("Max index in routing_sample:", routing_sample.max().item())
+        print("Size of dimension 2 in xr:", xr.size(2))
+
+        # Ensure indices are within bounds
+        if routing_sample.max().item() >= xr.size(2):
+            raise RuntimeError(f"Index {routing_sample.max().item()} is out of bounds for dimension 2 with size {xr.size(2)}")
+
+        args = torch.gather(xr, 2, routing_sample[:, :, 0])
+        past_img = [xr]
+        for l, layer in enumerate(self.hidden):
             args_idx = 0
+            img = torch.zeros([self.sampling_size, x.shape[0], self.img_layer_size])
             for i, (f, arity) in enumerate(self.torch_bases):
-                logit_arguments = logit_args[:, args_idx: (args_idx + arity)]
-                logit_imgs[:, i] += torch.sum(logit_arguments, dim=1)
+                arguments = args[:, :, args_idx: (args_idx + arity)]
+                img[:, :, i] = f(*torch.split(arguments, 1, dim=2)).squeeze()
                 args_idx += arity
-            past_logits = [logit_imgs] + past_logits
+            past_img = [img] + past_img
+            img = torch.cat(past_img, 2)
+            args = torch.gather(img, 2, routing_sample[:, :, l + 1])
+        routing_results[:, :, d] = args[:, :, :self.number_of_outputs]
+        xr = routing_results[:, :, d]
 
-        routing_probability = torch.exp(logit_args[:, 0:self.number_of_outputs])
+    hidden = routing_results.permute(2, 0, 1, 3)
+    return hidden[-1,:,:,:], routing_probability, hidden
 
-        # RESULT FROM EACH ROUTE
-        xr = x.unsqueeze(0).repeat(self.sampling_size, 1, 1)
-        routing_sample = routing_sample.unsqueeze(1).repeat(1, x.shape[0], 1, 1)
-        for d in range(self.recurrence_depth):
-            # AUGMENT INPUT WITH CONSTANTS
-            for constant in self.torch_constants:
-                constant_layer = torch.full((xr.shape[0], xr.shape[1], 1), constant)
-                xr = torch.cat((xr, constant_layer), dim=2)
-
-            # AUGMENT WITH DEPTH COUNTER
-            for counter in range(self.depth_counter):
-                counter_layer = torch.full((xr.shape[0], xr.shape[1], 1), d)
-                xr = torch.cat((xr, counter_layer), dim=2)
-
-            args = torch.gather(xr, 2, routing_sample[:, :, 0])
-            past_img = [xr]
-            for l, layer in enumerate(self.hidden):
-                args_idx = 0
-                img = torch.zeros([self.sampling_size, x.shape[0], self.img_layer_size])
-                for i, (f, arity) in enumerate(self.torch_bases):
-                    arguments = args[:, :, args_idx: (args_idx + arity)]
-                    img[:, :, i] = f(*torch.split(arguments, 1, dim=2)).squeeze()
-                    args_idx += arity
-                past_img = [img] + past_img
-                img = torch.cat(past_img, 2)
-                args = torch.gather(img, 2, routing_sample[:, :, l + 1])
-            routing_results[:, :, d] = args[:, :, :self.number_of_outputs]
-            # routing_results[:, :, d, :] = torch.gather(args[:, :], 2, routing_sample[:, :, 0])[:, :, 0:self.number_of_outputs]
-            xr = routing_results[:, :, d]
-
-        hidden = routing_results.permute(2, 0, 1, 3)
-        return hidden[-1,:,:,:], routing_probability, hidden
 
 
     def get_model_equation(self):
