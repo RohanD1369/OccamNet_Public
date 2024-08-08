@@ -259,8 +259,8 @@ class OccamNet(torch.nn.Module):
         routing_results[:, :, d] = args[:, :, :self.number_of_outputs]
         xr = routing_results[:, :, d]
 
-    hidden = routing_results.permute(2, 0, 1, 3)
-    return hidden[-1,:,:,:], routing_probability, hidden
+        hidden = routing_results.permute(2, 0, 1, 3)
+        return hidden[-1,:,:,:], routing_probability, hidden
 
 
 
