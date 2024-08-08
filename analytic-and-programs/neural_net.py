@@ -206,7 +206,7 @@ class OccamNet(torch.nn.Module):
         train(self, dataset=dataset, epochs=epochs, learning_rate=learning_rate,
               truncation_parameter=truncation_parameter, visualization=visualization, logging_interval=logging_interval,
               recording_rate=recording_rate, video_saver=video_saver, x=x, y=y, skip_connections=skip_connections,
-              pattern_recognition=pattern_recognition, equation_path=equation_path, stats_path=stats_path,
+              pattern_recognition=False, equation_path=equation_path, stats_path=stats_path,
               finetune=self.finetune,
               dataset_test=dataset_test)
 
