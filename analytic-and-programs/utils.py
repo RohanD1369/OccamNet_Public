@@ -1,10 +1,9 @@
-from sympy import *
+from sympy import symbols, Matrix, simplify
 import torch.nn as nn
 from inspect import signature
 import torch.nn.functional as F
 import torch
 from bases import *
-
 
 def get_model_equation(model, arg_max=True):
     def argmax_matrix(M):
@@ -32,7 +31,7 @@ def get_model_equation(model, arg_max=True):
 
     source_w = F.softmax((1.0 / model.temperature) * source_w, dim=1)
     source_w = argmax_matrix(source_w)
-    source_w = Matrix(source_w.detach().numpy().astype(int))
+    source_w = Matrix(source_w.detach().numpy().astype(float))  # Ensure it's a numerical matrix
 
     args = source_w * input_variables
     past_imgs = inputs + constants
@@ -45,19 +44,17 @@ def get_model_equation(model, arg_max=True):
             img.append(f(*arg))
             args_idx = args_idx + arity
 
-        # print(img)
-        if model.skip_connections: img = Matrix(img + past_imgs)
-        else: img = Matrix(img)
-        # print(img)
+        if model.skip_connections:
+            img = Matrix(img + past_imgs)
+        else:
+            img = Matrix(img)
+
         past_imgs = img[:]
         W = layer.weight.detach()
         W = F.softmax((1.0 / model.temperature) * W, dim=1)
         W = argmax_matrix(W)
-        W = Matrix(W.detach().numpy().astype(int))
-        # print("GOT HERE")
+        W = Matrix(W.detach().numpy().astype(float))  # Ensure it's a numerical matrix
         args = W * img
-        # print("ARGS", args)
-
 
     args = [simplify(arg) for arg in args]
     return args
