@@ -181,10 +181,10 @@ class OccamNet(torch.nn.Module):
         return routing_results[:,:,-1], routing_probability, routing_results[:,:,:-1]
 
     def forward_routing_with_skip_connections(self, x):
-    routing_logits = torch.empty([self.sampling_size, len(self.layers), self.arg_layer_size]).to(self.device)
-    routing_sample = torch.zeros([self.sampling_size, len(self.layers), self.arg_layer_size]).type(torch.LongTensor).to(self.device)
-    routing_results = torch.empty([self.sampling_size, x.shape[0], self.recurrence_depth, self.number_of_outputs]).to(self.device)
-    routing_probabilities = torch.empty([self.sampling_size, len(self.layers), self.arg_layer_size]).to(self.device)
+        routing_logits = torch.empty([self.sampling_size, len(self.layers), self.arg_layer_size]).to(self.device)
+        routing_sample = torch.zeros([self.sampling_size, len(self.layers), self.arg_layer_size]).type(torch.LongTensor).to(self.device)
+        routing_results = torch.empty([self.sampling_size, x.shape[0], self.recurrence_depth, self.number_of_outputs]).to(self.device)
+        routing_probabilities = torch.empty([self.sampling_size, len(self.layers), self.arg_layer_size]).to(self.device)
 
     # SAMPLE ROUTES
     for l, layer in enumerate(self.layers):
