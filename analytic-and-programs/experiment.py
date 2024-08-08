@@ -2,8 +2,6 @@ from torch.utils.data import Dataset, DataLoader
 import torch
 import torch.nn as nn
 from neural_net import OccamNet
-# from seql import SEQL
-# from vanilla import Vanilla
 from train import train
 import pickle
 from utils import get_model_equation
@@ -16,7 +14,6 @@ import io
 import base64
 import numpy as np
 import inspect
-
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 
@@ -57,9 +54,6 @@ class ExperimentCollection():
         self.save()
 
     def run(self):
-        # index_element = list(zip(list(range(len(self.experiments))), self.experiments))
-        # p = Pool(80)
-        # p.map(self.pool_execution, index_element)
         for (i, xp) in enumerate(self.experiments):
             self.has_experiment_run[i] = True
             print(f"RUNNING {xp.name}")
@@ -140,10 +134,6 @@ class Experiment():
         self.implicit = implicit
         if architecture == 'OccamNet':
             self.model_constructor = OccamNet
-        # elif architecture == 'SEQL':
-        #     self.model_constructor = SEQL
-        # elif architecture == 'Vanilla':
-        #     self.model_constructor = Vanilla
 
 
     def run(self, save=True, collection_name=""):
@@ -169,7 +159,12 @@ class Experiment():
 
             xnp = x[:,0].cpu().detach().numpy().flatten()
             sortindx = np.argsort(xnp)
-            ynp = y[:,0].cpu().detach().numpy().flatten()
+
+            if len(y.shape) == 1:
+                ynp = y.cpu().detach().numpy().flatten()
+            else:
+                ynp = y[:,0].cpu().detach().numpy().flatten()
+
             gradient = np.gradient(ynp[sortindx], xnp[sortindx])
             inverse_gradient = 1 / (np.abs(gradient) + EPS)
 
@@ -244,61 +239,4 @@ class Experiment():
             print('NO MODELS ARE SAVED FOR THIS EXPERIMENT')
             return
 
-        for r, (losses, model_dict) in enumerate(zip(self.losses, self.models)):
-            if len(self.models) > 1:
-                print("Repetition %d" % r)
-
-            model = OccamNet(bases=self.bases,
-                            batch_size=self.batch_size,
-                            depth=self.depth,
-                            temperature=self.temperature,
-                            number_of_inputs=self.number_of_inputs,
-                            recurrence_depth=self.recurrence_depth,
-                            sampling_size=self.sampling_size).to(self.device)
-
-            model.load_state_dict(model_dict)
-            model.eval()
-
-            y = TARGET_FUNCTIONS[self.target_function](x)
-            y_ = model(x)
-
-            sym_bases = [SYMPY_BASES[f] for f in self.bases]
-            equation = get_model_equation(model, sym_bases,
-                                softmaxsparse=True, sparsity=0.01, temperature=self.temperature)
-
-            if len(equation.atoms()) < 70:
-                print("\nResulting Equation:")
-                display(equation)
-            else:
-                print("\nThe resulting equation is huge.")
-
-            print('\n Full Graph:')
-            model.visualize()
-            print('\n Most Likely Composition:')
-            model.visualize(traceback=True)
-
-            video_name = "%s_%s_%d" % (collection_name, self.name, r)
-            video_path = videos_folder + video_name + '.mp4'
-
-            if exists(video_path):
-                video = io.open(video_path, 'r+b').read()
-                encoded = base64.b64encode(video)
-                print('\n Network Evolution:')
-                display(HTML(data='''
-                    <video width="400" height="auto" alt="test" controls>
-                        <source src="data:video/mp4;base64,{0}" type="video/mp4" />
-                    </video>'''.format(encoded.decode('ascii'))))
-
-            print('\n Loss Function:')
-
-            plt.plot(losses[:], color='black')
-            plt.show()
-
-            print('\n Function Image')
-            if self.number_of_inputs == 1:
-                plt.plot(x, y, color='black', label='target function')
-                plt.plot(x, y_.detach().numpy(), color='green', label='model')
-                plt.legend(loc="upper left")
-                plt.show()
-            else:
-                print('Can\'t display image of function of arity > 2')
+        for r,
