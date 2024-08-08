@@ -3,10 +3,14 @@ import torch.nn as nn
 from inspect import signature
 import torch.nn.functional as F
 import torch
+import numpy as np  # Import numpy for better handling of array operations
 from bases import *
 
 def get_model_equation(model, arg_max=True):
     def argmax_matrix(M):
+        # Ensure the input M is a tensor
+        if not isinstance(M, torch.Tensor):
+            M = torch.tensor(M, dtype=torch.float32)
         argmaxes = torch.argmax(M, dim=1).unsqueeze(-1)
         matrix = torch.zeros_like(M)
         for i, argmax in enumerate(argmaxes):
@@ -24,14 +28,18 @@ def get_model_equation(model, arg_max=True):
         layers += [l for l in module.children()] if isinstance(module, nn.ModuleList) else [module]
 
     source = layers[0]
-    source_w = source.weight.detach()
+    source_w = source.weight.detach().cpu().numpy()  # Convert to numpy array
 
     number_of_inputs = source_w.shape[1]
     input_variables = Matrix(inputs + constants)
 
-    source_w = F.softmax((1.0 / model.temperature) * source_w, dim=1)
-    source_w = argmax_matrix(source_w)
-    source_w = Matrix(source_w.detach().numpy().astype(float))  # Ensure it's a numerical matrix
+    # Ensure the softmax operation is applied to a torch tensor
+    source_w_tensor = torch.tensor(source_w, dtype=torch.float32)
+    source_w_tensor = F.softmax((1.0 / model.temperature) * source_w_tensor, dim=1)
+    source_w_tensor = argmax_matrix(source_w_tensor)
+    
+    # Convert the tensor back to numpy for sympy
+    source_w = Matrix(source_w_tensor.cpu().numpy().astype(float))  # Ensure it's a numerical matrix
 
     args = source_w * input_variables
     past_imgs = inputs + constants
@@ -50,10 +58,13 @@ def get_model_equation(model, arg_max=True):
             img = Matrix(img)
 
         past_imgs = img[:]
-        W = layer.weight.detach()
-        W = F.softmax((1.0 / model.temperature) * W, dim=1)
-        W = argmax_matrix(W)
-        W = Matrix(W.detach().numpy().astype(float))  # Ensure it's a numerical matrix
+        W = layer.weight.detach().cpu().numpy()  # Convert to numpy array
+        W_tensor = torch.tensor(W, dtype=torch.float32)
+        W_tensor = F.softmax((1.0 / model.temperature) * W_tensor, dim=1)
+        W_tensor = argmax_matrix(W_tensor)
+
+        # Convert the tensor back to numpy for sympy
+        W = Matrix(W_tensor.cpu().numpy().astype(float))  # Ensure it's a numerical matrix
         args = W * img
 
     args = [simplify(arg) for arg in args]
