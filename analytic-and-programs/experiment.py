@@ -146,6 +146,8 @@ class Experiment():
             print("USING DEVICE", self.device)
 
             x = self.sampler(self.dataset_size)
+            
+            print("target function", self.target_function)
             y = TARGET_FUNCTIONS[self.target_function](x)
 
             if self.implicit:
@@ -154,16 +156,15 @@ class Experiment():
 
             x = x.to(self.device)
             y = y.to(self.device)
+            
+            if len(y.shape) == 1:
+                y = y.unsqueeze(1)
 
             # print("TOTAL VARIANCE OF DATASET:", y.std().item())
 
             xnp = x[:,0].cpu().detach().numpy().flatten()
             sortindx = np.argsort(xnp)
-
-            if len(y.shape) == 1:
-                ynp = y.cpu().detach().numpy().flatten()
-            else:
-                ynp = y[:,0].cpu().detach().numpy().flatten()
+            ynp = y[:,0].cpu().detach().numpy().flatten()
 
             gradient = np.gradient(ynp[sortindx], xnp[sortindx])
             inverse_gradient = 1 / (np.abs(gradient) + EPS)
@@ -174,7 +175,6 @@ class Experiment():
 
             window_size = 10
             variances = torch.full([x.shape[0], 1], self.variances)
-
             dl = DataLoader(data(x, y, variances), batch_size=self.batch_size, shuffle=True)
 
             video_saver = None
