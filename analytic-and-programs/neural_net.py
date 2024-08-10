@@ -47,7 +47,8 @@ class OccamNet(torch.nn.Module):
 
         self.number_of_constants = len(self.constants)
         self.number_of_variables = number_of_inputs
-        self.number_of_inputs = number_of_inputs + self.number_of_constants + self.depth_counter
+        self.number_of_inputs = number_of_inputs + \
+            self.number_of_constants + self.depth_counter
         self.number_of_outputs = number_of_outputs
 
         self.finetune = finetune
@@ -64,17 +65,21 @@ class OccamNet(torch.nn.Module):
             self.torch_bases.append((f, arity))
             self.arg_layer_size += arity
 
-        self.source = nn.Linear(self.number_of_inputs, self.arg_layer_size, bias=False)
+        self.source = nn.Linear(self.number_of_inputs,
+                                self.arg_layer_size, bias=False)
         if self.skip_connections:
             self.hidden = nn.ModuleList([
                 *[nn.Linear(self.img_layer_size * (i + 1) + self.number_of_inputs, self.arg_layer_size, bias=False) for
                   i in range(depth)],
-                nn.Linear(self.img_layer_size * (depth + 1) + self.number_of_inputs, self.number_of_outputs, bias=False)
+                nn.Linear(self.img_layer_size * (depth + 1) +
+                          self.number_of_inputs, self.number_of_outputs, bias=False)
             ])
         else:
             self.hidden = nn.ModuleList([
-                *[nn.Linear(self.img_layer_size, self.arg_layer_size, bias=False) for _ in range(depth)],
-                nn.Linear(self.img_layer_size, self.number_of_outputs, bias=False)
+                *[nn.Linear(self.img_layer_size, self.arg_layer_size,
+                            bias=False) for _ in range(depth)],
+                nn.Linear(self.img_layer_size,
+                          self.number_of_outputs, bias=False)
             ])
 
         self.layers = [self.source, *self.hidden]
@@ -90,21 +95,26 @@ class OccamNet(torch.nn.Module):
             x = self.feature_extractor(x).squeeze(-1).squeeze(-1)
         for d in range(self.recurrence_depth):
             for constant in self.torch_constants:
-                constant_layer = torch.full((x.shape[0], 1), constant).to(self.device)
+                constant_layer = torch.full(
+                    (x.shape[0], 1), constant).to(self.device)
                 x = torch.cat((x, constant_layer), dim=1)
 
             for counter in range(self.depth_counter):
                 counter_layer = torch.full((x.shape[0], 1), d)
                 x = torch.cat((x, counter_layer), dim=1)
 
-            weights = F.softmax((1.0 / self.temperature) * self.source.weight, dim=1).T
+            weights = F.softmax((1.0 / self.temperature) *
+                                self.source.weight, dim=1).T
             args = torch.matmul(x, weights)
             past_img = [x]
             for l, layer in enumerate(self.hidden):
-                temperature = self.temperature if l != len(self.hidden) - 1 else self.last_layer_temperature
-                weights = F.softmax((1.0 / temperature) * layer.weight, dim=1).T
+                temperature = self.temperature if l != len(
+                    self.hidden) - 1 else self.last_layer_temperature
+                weights = F.softmax((1.0 / temperature) *
+                                    layer.weight, dim=1).T
                 args_idx = 0
-                img = torch.zeros([x.shape[0], self.img_layer_size]).to(self.device)
+                img = torch.zeros(
+                    [x.shape[0], self.img_layer_size]).to(self.device)
                 for i, (f, arity) in enumerate(self.torch_bases):
                     arguments = args[:, args_idx: (args_idx + arity)]
                     img[:, i] = f(*torch.split(arguments, 1, dim=1)).squeeze()
@@ -118,23 +128,28 @@ class OccamNet(torch.nn.Module):
         return x
 
     def forward_routing_with_skip_connections(self, x):
-        routing_logits = torch.empty([self.sampling_size, len(self.layers), self.arg_layer_size]).to(self.device)
-        routing_sample = torch.zeros([self.sampling_size, len(self.layers), \
+        routing_logits = torch.empty([self.sampling_size, len(
+            self.layers), self.arg_layer_size]).to(self.device)
+        routing_sample = torch.zeros([self.sampling_size, len(self.layers),
                                       self.arg_layer_size]).type(torch.LongTensor).to(self.device)
         routing_results = torch.empty(
             [self.sampling_size, x.shape[0], self.recurrence_depth, self.number_of_outputs]).to(self.device)
-        routing_probabilities = torch.empty([self.sampling_size, len(self.layers), self.arg_layer_size]).to(self.device)
+        routing_probabilities = torch.empty(
+            [self.sampling_size, len(self.layers), self.arg_layer_size]).to(self.device)
 
         # SAMPLE ROUTES
         for l, layer in enumerate(self.layers):
-            temperature = self.temperature if l != len(self.hidden) - 1 else self.last_layer_temperature
+            temperature = self.temperature if l != len(
+                self.hidden) - 1 else self.last_layer_temperature
             weights = F.softmax((1.0 / temperature) * layer.weight, dim=1).T
             sample = Categorical(weights.T).sample([self.sampling_size])
             probabilities = torch.gather(weights, 0, sample)
 
             if l == len(self.layers) - 1:
-                routing_logits[:, l, :self.number_of_outputs] = torch.log(probabilities)
-                routing_probabilities[:, l, :self.number_of_outputs] = probabilities
+                routing_logits[:, l, :self.number_of_outputs] = torch.log(
+                    probabilities)
+                routing_probabilities[:, l,
+                                      :self.number_of_outputs] = probabilities
                 routing_sample[:, l, :self.number_of_outputs] = sample
             else:
                 routing_logits[:, l, :] = torch.log(probabilities)
@@ -142,14 +157,18 @@ class OccamNet(torch.nn.Module):
                 routing_sample[:, l, :] = sample
 
         # PROBABILITY OF EACH ROUTE
-        past_logits = [torch.zeros([self.sampling_size, self.number_of_inputs]).to(self.device)]  # this starts with the input node
+        past_logits = [torch.zeros([self.sampling_size, self.number_of_inputs]).to(
+            self.device)]  # this starts with the input node
         for l, layer in enumerate(self.layers):
             routes = routing_sample[:, l]
-            logit_imgs = torch.cat(past_logits, 1).to(self.device)  # uses old images as skip connections
-            logit_args = torch.gather(logit_imgs, 1, routes) + routing_logits[:, l]
+            logit_imgs = torch.cat(past_logits, 1).to(
+                self.device)  # uses old images as skip connections
+            logit_args = torch.gather(
+                logit_imgs, 1, routes) + routing_logits[:, l]
             if l == len(self.layers) - 1:
                 break
-            logit_imgs = torch.zeros([self.sampling_size, self.img_layer_size]).to(self.device)
+            logit_imgs = torch.zeros(
+                [self.sampling_size, self.img_layer_size]).to(self.device)
             args_idx = 0
             for i, (f, arity) in enumerate(self.torch_bases):
                 logit_arguments = logit_args[:, args_idx: (args_idx + arity)]
@@ -157,15 +176,19 @@ class OccamNet(torch.nn.Module):
                 args_idx += arity
             past_logits = [logit_imgs] + past_logits
 
-        routing_probability = torch.exp(logit_args[:, 0:self.number_of_outputs])  # TODO: I do not need to expon to backprop
+        # TODO: I do not need to expon to backprop
+        routing_probability = torch.exp(
+            logit_args[:, 0:self.number_of_outputs])
 
         # RESULT FROM EACH ROUTE
         xr = x.unsqueeze(0).repeat(self.sampling_size, 1, 1)
-        routing_sample = routing_sample.unsqueeze(1).repeat(1, x.shape[0], 1, 1)
+        routing_sample = routing_sample.unsqueeze(
+            1).repeat(1, x.shape[0], 1, 1)
         for d in range(self.recurrence_depth):
             # AUGMENT INPUT WITH CONSTANTS
             for constant in self.torch_constants:
-                constant_layer = torch.full((xr.shape[0], xr.shape[1], 1), constant).to(self.device)
+                constant_layer = torch.full(
+                    (xr.shape[0], xr.shape[1], 1), constant).to(self.device)
                 xr = torch.cat((xr, constant_layer), dim=2)
 
             # AUGMENT WITH DEPTH COUNTER
@@ -178,10 +201,12 @@ class OccamNet(torch.nn.Module):
 
             for l, layer in enumerate(self.hidden):
                 args_idx = 0
-                img = torch.zeros([self.sampling_size, x.shape[0], self.img_layer_size]).to(self.device)
+                img = torch.zeros(
+                    [self.sampling_size, x.shape[0], self.img_layer_size]).to(self.device)
                 for i, (f, arity) in enumerate(self.torch_bases):
                     arguments = args[:, :, args_idx: (args_idx + arity)]
-                    img[:, :, i] = f(*torch.split(arguments, 1, dim=2)).squeeze()
+                    img[:, :, i] = f(
+                        *torch.split(arguments, 1, dim=2)).squeeze()
                     args_idx += arity
                 past_img = [img] + past_img
                 img = torch.cat(past_img, 2)
@@ -199,13 +224,14 @@ class OccamNet(torch.nn.Module):
         visualize(self, cascadeback=cascadeback, routing_map=routing_map, video_saver=video_saver, viz_type=viz_type,
                   epoch=epoch, sample_x=sample_x, sample_y=sample_y, skip_connections=skip_connections, losses=losses)
 
-    def train(self, dataset=None, epochs=1000, learning_rate=0.001, truncation_parameter=10,
-              visualization='image',
+    def train(self, dataset=None, epochs=1000, learning_rate=0.001, regularization=False, temperature=[1, 1], variances='batch',
+              weight_pruning_bound=0.01, loss_function=None, losses_folder=None, truncation_parameter=10, visualization='image',
               logging_interval=None, recording_rate=10, video_saver=None, x=None, y=None, skip_connections=False,
-              ):
-        train(self, dataset=dataset, epochs=epochs, learning_rate=learning_rate,
-              truncation_parameter=truncation_parameter, visualization=visualization, logging_interval=logging_interval,
-              recording_rate=recording_rate, video_saver=video_saver, x=x, y=y, skip_connections=skip_connections,
+              variance_evolution="still", temperature_evolution="still", training_method='evolutionary'):
+        train(self, dataset=dataset, epochs=epochs, learning_rate=learning_rate, regularization=regularization, temperature=temperature, variances=variances,
+              weight_pruning_bound=weight_pruning_bound, loss_function=loss_function, losses_folder=losses_folder, truncation_parameter=truncation_parameter, visualization=visualization,
+              logging_interval=logging_interval, recording_rate=recording_rate, video_saver=video_saver, x=x, y=y, skip_connections=skip_connections,
+              variance_evolution=variance_evolution, temperature_evolution=temperature_evolution, training_method=training_method
               )
 
 #
