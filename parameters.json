@@ -1,0 +1,33 @@
+{
+    "name": "Generalized Experiment Collection",
+    "collection": [
+      {
+        "name": "Experiment 1",
+        "architecture": "OccamNet",
+        "bases": ["SINE", "ADDITION"],
+        "constants": ["ONE", "PI"],
+        "target_function": "GRAVITATION",
+        "domain_type": "continuous",
+        "data_domain": [[0, 10], [0, 10], [0, 10]],
+        "recurrence_depth": 3,
+        "depth": 5,
+        "repeat": 10,
+        "record": true,
+        "recording_rate": 5,
+        "dataset_size": 1000,
+        "batch_size": 32,
+        "sampling_size": 100,
+        "truncation_parameter": 5,
+        "number_of_inputs": 3,
+        "number_of_outputs": 1,
+        "learning_rate": 0.01,
+        "variances": 0.1,
+        "temperature": 1.0,
+        "last_layer_temperature": 0.5,
+        "epochs": 50,
+        "skip_connections": true,
+        "visualization": ["network", "loss", "expression"]
+      }
+    ]
+  }
+  
