@@ -242,11 +242,11 @@ def print_model_equations(ax, model, skip_connections):
 #torch.save(model.state_dict(), 'results/model_weights.pth')
 
 # Saving the model outputs
-outputs = model(sample_x)
-np.save('results/model_outputs.npy', outputs.detach().numpy())
+#outputs = model(sample_x)
+#np.save('results/model_outputs.npy', outputs.detach().numpy())
 
 # Saving the loss history
-np.save('results/losses.npy', np.array(losses))
+#np.save('results/losses.npy', np.array(losses))
 
 # Saving visualizations
 visualize(model, viz_type=['network', 'loss'], save_path='results/visualization.png')
