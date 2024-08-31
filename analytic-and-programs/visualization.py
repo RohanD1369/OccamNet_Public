@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from collections import defaultdict
 import torch.nn.functional as F
 import sympy as sp
