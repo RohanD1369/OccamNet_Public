@@ -1,18 +1,15 @@
 import numpy as np
-import torch
+from bases import *
 from collections import defaultdict
 import torch.nn.functional as F
 import sympy as sp
 import networkx as nx
 import matplotlib.pyplot as plt
-from matplotlib import rcParams
+from matplotlib import rc, rcParams
 
-
-# Visualization function
-import matplotlib.pyplot as plt
 
 def visualize(model, plot_graph=True, traceback=False, cascadeback=False, routing_map=None, viz_type=[], losses=[],
-                video_saver=None, epoch=None, sample_x=None, sample_y=None, skip_connections=False, save_path=None):
+                video_saver=None, epoch=None, sample_x=None, sample_y=None, skip_connections=False):
     fig, (axes) = plt.subplots(len(viz_type), figsize=(13, 13), sharex=False, sharey=False)
     fig.tight_layout(pad=5.0)
     for viz, ax in zip(viz_type, axes):
@@ -21,29 +18,29 @@ def visualize(model, plot_graph=True, traceback=False, cascadeback=False, routin
 
         if viz == "network":
             draw_model_network(ax, model, traceback, cascadeback, routing_map, skip_connections, epoch)
-        elif viz == 'image' and (torch.is_tensor(sample_x) and torch.is_tensor(sample_y)) and sample_x.shape[1] == 1 and sample_y.shape[1] == 1:
+        if viz == 'image' and (torch.is_tensor(sample_x) and torch.is_tensor(sample_y)) and sample_x.shape[1] == 1 and sample_y.shape[1] == 1:
             draw_model_image(ax, model, sample_x, sample_y, skip_connections)
         elif viz == 'expression':
             print_model_equations(ax, model, skip_connections)
         elif viz == 'loss':
             draw_model_losses(ax, losses)
-
-    # If save_path is provided, save the figure to the specified path
-    if save_path is not None:
-        plt.savefig(save_path)
+        # elif viz == 'constant_builder':
+            # if model.constant_builder:
+                # draw_model_network(ax, model.constantBuilder, traceback, cascadeback, routing_map, skip_connections)
+    if video_saver is not None:
+        video_saver.snap(plt)
     else:
         plt.show()
 
 
-# Drawing the network graph
 def draw_model_network(ax1, model, traceback, cascadeback, routing_map, skip_connections, epoch):
     latex_bases = [LATEX_BASES[f] for f in model.bases]
     latex_constants = [LATEX_CONSTANTS[f] for f in model.constants]
 
     n_layers = len(model.hidden) + 1
     delta = 100 / (n_layers * 2)
-    maximum_image_height = model.img_layer_size
 
+    maximum_image_height = model.img_layer_size
     if skip_connections:
         maximum_image_height = model.number_of_inputs + (model.depth + 1) * model.img_layer_size
 
@@ -52,7 +49,9 @@ def draw_model_network(ax1, model, traceback, cascadeback, routing_map, skip_con
 
     arguments_x = np.linspace(delta, (100-delta), n_layers)
     arguments_y = np.linspace(100, 100 - 100 * model.arg_layer_size / maximum_image_height, model.arg_layer_size)
+
     outputs_y = np.linspace(80, 20, model.number_of_outputs)
+
     images_x = np.linspace(2 * delta, 100, n_layers)
     images_y = np.linspace(100, 0, maximum_image_height)
 
@@ -77,6 +76,7 @@ def draw_model_network(ax1, model, traceback, cascadeback, routing_map, skip_con
         images.append(node)
         id = id + 1
 
+
     past_images = images[:]
     image_stack = [images[:]]
     nodes, edges = images[:], []
@@ -90,6 +90,7 @@ def draw_model_network(ax1, model, traceback, cascadeback, routing_map, skip_con
 
         arguments = []
         for a in range(len(layer.weight)):
+
             argument = {'id': id, 'x': arguments_x[l],
                         'y': arguments_y[a], 'label': '$Σ$'}
             arguments.append(argument)
@@ -165,6 +166,8 @@ def draw_model_network(ax1, model, traceback, cascadeback, routing_map, skip_con
     process_nodes(ax1, G, pos, nodes, epoch, model.temperature, model.last_layer_temperature)
     process_edges(ax1, G, pos, edges)
 
+
+
 def backtrack_through_parents(nodes, parents, number_of_outputs):
     edges, visited = [], set()
     queue = [nodes[-i-1]['id'] for i in range(number_of_outputs)]
@@ -177,6 +180,7 @@ def backtrack_through_parents(nodes, parents, number_of_outputs):
                     queue += [ π ]
                     visited |= { π }
     return edges
+
 
 def process_nodes(ax, G, pos, nodes, epoch, T, LLT):
     G.add_nodes_from([ v['id'] for v in nodes])
@@ -204,49 +208,60 @@ def process_edges(ax, G, pos, edges):
         nx.draw_networkx_edges(G, pos, edgelist=[[v,u,w]], width=width, ax=ax, style=style)
 
     edge_labels = { (v, u): round(w, 3) for (v, u, w) in edges if round(w, 3) > 0}
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=6, ax=ax)
-
-def draw_model_losses(ax, losses):
-    x = np.arange(0, len(losses))
-    ax.plot(x, np.array(losses), label='Training loss')
-    ax.legend()
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels,
+                                label_pos=0.75, font_size=6, alpha=0.5, ax=ax)
 
 def draw_model_image(ax, model, sample_x, sample_y, skip_connections):
-    predictions = model(sample_x)
-    sample_x, predictions, sample_y = sample_x[0][0], predictions.detach().numpy()[0][0], sample_y[0][0]
+    ax.axes.get_xaxis().set_visible(True)
+    ax.axes.get_yaxis().set_visible(True)
 
-    if skip_connections:
-        maximum_image_height = sample_x.shape[0]
-        predictions = [img for i, img in enumerate(predictions) if i < maximum_image_height]
-        sample_y = [img for i, img in enumerate(sample_y) if i < maximum_image_height]
+    ax.set_title("$\mathbb{E}[f(x)|\mathbf{W}]$")
+    sample_x, idx = torch.sort(sample_x, dim=0)
+    sample_y = sample_y[idx].squeeze(-1)
+    ax.set_ylim(torch.min(sample_y),  torch.max(sample_y))
+    ax.plot(sample_x, sample_y, color='black', label='target function')
+    if skip_connections: y_ = model(sample_x)
+    else: y_ = model(sample_x)
+    ax.plot(sample_x, y_.detach().numpy(), color='green', label='model')
+    ax.legend(loc="upper left")
+    [t.set_visible(True) for t in ax.get_xticklabels()]
 
-    ax.plot(np.array(predictions), label='Predicted', color='blue')
-    ax.plot(np.array(sample_y), label='Actual', color='green')
-    ax.legend()
+def draw_model_losses(ax, losses):
+    ax.set_title("Mean G(f(x))")
+
+    losses = np.array(losses)
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('$ \\frac{1}{R} \sum_{r \in R} G(f_r(x))$')
+    ax.plot(losses[:, 0], losses[:, 1])
+
+    [t.set_visible(True) for t in ax.get_xticklabels()]
+
 
 def print_model_equations(ax, model, skip_connections):
-    depth, arguments, names, constants = 1, [], [], []
+    rcParams['mathtext.fontset'] = 'dejavuserif'
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    equations = model.get_model_equation()
+    equations.reverse()
+    textstr = '\n'.join(['$ y_' + str(i) + '(\\vec{x}) = ' + sp.latex(eq) + '$' for i, eq in enumerate(equations)])
+    ax.text(0.05, 0.5, textstr, horizontalalignment='left', fontsize=15,
+            verticalalignment='center')
 
-    for k, parameter in enumerate(model.named_parameters()):
-        name, param = parameter[0], parameter[1]
-        if "weights" in name: arguments.append(param)
-        elif "constants" in name: constants.append(param)
-        else: names.append(name)
 
-    ax.set_axis_off()
-    ax.text(0.1, 0.5, f'Names: {names}')
-    ax.text(0.1, 0.4, f'Arguments: {arguments}')
-    ax.text(0.1, 0.3, f'Constants: {constants}')
 
-# Saving the model
-#torch.save(model.state_dict(), 'results/model_weights.pth')
 
-# Saving the model outputs
-#outputs = model(sample_x)
-#np.save('results/model_outputs.npy', outputs.detach().numpy())
 
-# Saving the loss history
-#np.save('results/losses.npy', np.array(losses))
 
-# Saving visualizations
-visualize(model, viz_type=['network', 'loss'], save_path='results/visualization.png')
+
+
+
+
+
+
+
+
+
+
+
+
+
+#
