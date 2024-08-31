@@ -239,7 +239,7 @@ def print_model_equations(ax, model, skip_connections):
     ax.text(0.1, 0.3, f'Constants: {constants}')
 
 # Saving the model
-torch.save(model.state_dict(), 'results/model_weights.pth')
+#torch.save(model.state_dict(), 'results/model_weights.pth')
 
 # Saving the model outputs
 outputs = model(sample_x)
