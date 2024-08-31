@@ -179,7 +179,8 @@ class Experiment():
 
             video_saver = None
             if self.record:
-                video_saver = VideoSaver(video_name= "%s_%s_%d" % (collection_name, self.name, r))
+                name = self.name.replace(" ","")
+                video_saver = VideoSaver(video_name= f"{collection_name}_{name}_{r}")
 
             train_params = {
                       'dataset':dl,
