@@ -7,7 +7,7 @@ from IPython.display import HTML
 
 class VideoSaver:
     def __init__(self, temp_folder='./video_temp',
-                video_folder='./experiments/videos/', video_name='video'):
+                video_folder='experiments/videos/', video_name='video'):
 
         if os.path.isdir(temp_folder):
             shutil.rmtree(temp_folder)
