@@ -32,7 +32,7 @@ class data(Dataset):
     def __getitem__(self, idx):
          return (self.x[idx], self.y[idx])
 
-def cross_validate(model_class, pathdir, filename, k=5, epochs=1000, learning_rate=0.001):
+'''def cross_validate(model_class, pathdir, filename, k=5, epochs=1000, learning_rate=0.001):
     inputs, targets = load_data(pathdir, filename)
     kf = KFold(n_splits=k)
     
@@ -72,7 +72,7 @@ def cross_validate(model_class, pathdir, filename, k=5, epochs=1000, learning_ra
     
     # Save the validation losses for analysis
     np.save('validation_losses.npy', np.array(validation_losses))
-    print("Validation losses for each fold saved.")
+    print("Validation losses for each fold saved.")'''
 
 remove_anomalies = True
 def train(model, dataset=None, epochs=1000, learning_rate=0.001, regularization=False, temperature=[1, 1], variances='batch',
