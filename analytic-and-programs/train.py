@@ -37,6 +37,8 @@ def cross_validate(model_class, pathdir, filename, k=5, epochs=1000, learning_ra
     kf = KFold(n_splits=k)
     
     fold = 1
+    validation_losses = []  # Store validation losses for each fold
+
     for train_index, val_index in kf.split(inputs):
         print(f"Training fold {fold}...")
         x_train, x_val = inputs[train_index], inputs[val_index]
@@ -56,8 +58,21 @@ def cross_validate(model_class, pathdir, filename, k=5, epochs=1000, learning_ra
         
         # Train the model
         train(model, train_loader, epochs=epochs, learning_rate=learning_rate)
-        
+
+        # Validate the model after training on this fold
+        val_loss = validate(model, val_loader)
+        validation_losses.append(val_loss)
+
+        # Save the model for this fold
+        model_save_path = f"models/model_fold_{fold}.pt"
+        torch.save(model.state_dict(), model_save_path)
+        print(f"Model for fold {fold} saved at {model_save_path}")
+
         fold += 1
+    
+    # Save the validation losses for analysis
+    np.save('validation_losses.npy', np.array(validation_losses))
+    print("Validation losses for each fold saved.")
 
 remove_anomalies = True
 def train(model, dataset=None, epochs=1000, learning_rate=0.001, regularization=False, temperature=[1, 1], variances='batch',
