@@ -15,6 +15,7 @@ import math
 from torch.utils.data import Dataset, DataLoader
 import argparse
 import os
+from sklearn.model_selection import KFold  # Import KFold
 
 bar_length = 100
 EPS = 1e-12
@@ -31,6 +32,32 @@ class data(Dataset):
     def __getitem__(self, idx):
          return (self.x[idx], self.y[idx])
 
+def cross_validate(model_class, pathdir, filename, k=5, epochs=1000, learning_rate=0.001):
+    inputs, targets = load_data(pathdir, filename)
+    kf = KFold(n_splits=k)
+    
+    fold = 1
+    for train_index, val_index in kf.split(inputs):
+        print(f"Training fold {fold}...")
+        x_train, x_val = inputs[train_index], inputs[val_index]
+        y_train, y_val = targets[train_index], targets[val_index]
+        
+        # Create datasets
+        train_dataset = Data(torch.tensor(x_train, dtype=torch.float32), torch.tensor(y_train, dtype=torch.float32))
+        val_dataset = Data(torch.tensor(x_val, dtype=torch.float32), torch.tensor(y_val, dtype=torch.float32))
+        
+        train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+        
+        # Instantiate model
+        input_size = x_train.shape[1]
+        output_size = 1  # Assuming a single target
+        model = model_class(input_size, output_size)
+        
+        # Train the model
+        train(model, train_loader, epochs=epochs, learning_rate=learning_rate)
+        
+        fold += 1
 
 remove_anomalies = True
 def train(model, dataset=None, epochs=1000, learning_rate=0.001, regularization=False, temperature=[1, 1], variances='batch',
