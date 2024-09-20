@@ -1,4 +1,3 @@
-from feynman_dataset import get_feynman_dataloader
 import sympy as sp
 from bases import *
 from targets import *
@@ -122,23 +121,9 @@ def train(model, dataset=None, epochs=1000, learning_rate=0.001, regularization=
 
             epoch_G = []
 
-            for batch in dataset:
-                output, probabilities, hidden = model.forward_routing_with_skip_connections(batch_x)
-                # Handle different dataset formats
-                if len(batch) == 2:
-                    batch_x, batch_y = batch
-                    batch_variance = torch.ones_like(batch_y) * 0.01  # Default variance
-                elif len(batch) == 3:
-                    batch_x, batch_y, batch_variance = batch
-                else:
-                    raise ValueError("Unexpected batch format")
-
+            for batch_x, batch_y, batch_variance in dataset:
                 output, probabilities, hidden = model.forward_routing_with_skip_connections(batch_x)
 
-                if variance_evolution == 'batch':
-                    var = batch_variance
-                else:
-                    var = get_variances(epoch)
                 if variance_evolution == 'batch':
                     var = batch_variance
                 else:
@@ -153,7 +138,6 @@ def train(model, dataset=None, epochs=1000, learning_rate=0.001, regularization=
                         output = output[regular]
                         probabilities = probabilities[regular]
                         hidden = hidden[:, regular]
-                
 
                 target_distribution = torch.distributions.Normal(batch_y, var)
 
