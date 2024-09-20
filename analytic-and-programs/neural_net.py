@@ -1,3 +1,4 @@
+from feynman_dataset import get_feynman_dataloader
 import torch
 import torch.nn as nn
 from utils import get_arity, get_model_equation
@@ -17,7 +18,7 @@ class OccamNet(torch.nn.Module):
                  temperature=1.0,
                  last_layer_temperature=None,
                  device="cpu",
-                 number_of_inputs=1,
+                 number_of_inputs=5,
                  number_of_outputs=1,
                  recurrence_depth=1,
                  sampling_size=10,
