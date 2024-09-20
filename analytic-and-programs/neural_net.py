@@ -1,4 +1,4 @@
-from feynman_dataset import get_feynman_dataloader
+#from feynman_dataset import get_feynman_dataloader
 import torch
 import torch.nn as nn
 from utils import get_arity, get_model_equation
