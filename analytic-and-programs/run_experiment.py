@@ -1,7 +1,6 @@
 import json
 import argparse
 from experiment import ExperimentCollection, Experiment
-from occamnet import OccamNet
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
