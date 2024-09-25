@@ -72,7 +72,8 @@ if __name__ == '__main__':
             experiment_collection.push(experiment)
     
     # Run all experiments
+    plot_occamnet_learning_curves(experiment_collection)
     experiment_collection.run()
 
     # After all experiments are complete, plot the learning curves
-    plot_occamnet_learning_curves(experiment_collection)
+    
