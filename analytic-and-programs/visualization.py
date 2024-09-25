@@ -190,7 +190,7 @@ def process_nodes(ax, G, pos, nodes, epoch, T, LLT):
     nx.draw_networkx_nodes(G, pos, node_color='w', linewidths=1, edgecolors='black', ax=ax)
     nx.draw_networkx_labels(G, pos, node_labels, font_size=10, ax=ax)
   
-'''def plot_detailed_learning_curve(experiment):
+def plot_detailed_learning_curve(experiment):
     plt.figure(figsize=(12, 6))
     for run, loss_list in enumerate(experiment.losses):
         plt.plot(loss_list, label=f'Run {run+1}')
@@ -198,7 +198,7 @@ def process_nodes(ax, G, pos, nodes, epoch, T, LLT):
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
-    plt.show()'''
+    plt.show()
 def process_edges(ax, G, pos, edges):
     G.add_weighted_edges_from(edges)
     weights = [w for v, u, w in edges]
