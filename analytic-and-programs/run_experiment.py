@@ -9,6 +9,7 @@ import torch
 json_file_path = "/content/parameters.json"
 
 def plot_occamnet_learning_curves(experiment_collection):
+    print('testOOOOOOOOOOOOOOOO')
     num_experiments = len(experiment_collection.experiments)
     fig, axes = plt.subplots(num_experiments + 2, 1, figsize=(12, 6*(num_experiments + 2)), sharex=True)
     fig.suptitle('Learning Curves for OccamNet Experiments', fontsize=16)
