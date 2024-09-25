@@ -53,6 +53,9 @@ def plot_occamnet_learning_curves(experiment_collection):
     plt.tight_layout()
     plt.savefig('learning_curves.png')
     plt.show()
+    print(f"Number of experiments: {num_experiments}")
+    for i, experiment in enumerate(experiment_collection.experiments):
+        print(f"Experiment {i+1} losses: {experiment.losses}")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
