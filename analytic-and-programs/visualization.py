@@ -7,7 +7,16 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from matplotlib import rc, rcParams
 
-
+def plot_detailed_learning_curve(experiment):
+    plt.figure(figsize=(12, 6))
+    for run, loss_list in enumerate(experiment.losses):
+        plt.plot(loss_list, label=f'Run {run+1}')
+    plt.title(f'Detailed Learning Curve for {experiment.name}')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.show()
+  
 def visualize(model, plot_graph=True, traceback=False, cascadeback=False, routing_map=None, viz_type=[], losses=[],
                 video_saver=None, epoch=None, sample_x=None, sample_y=None, skip_connections=False):
     fig, (axes) = plt.subplots(len(viz_type), figsize=(13, 13), sharex=False, sharey=False)
