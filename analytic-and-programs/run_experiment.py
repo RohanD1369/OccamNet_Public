@@ -76,4 +76,7 @@ if __name__ == '__main__':
     experiment_collection.run()
 
     # After all experiments are complete, plot the learning curves
+    from visualization import plot_detailed_learning_curve
     
+    for experiment in experiment_collection.experiments:
+        plot_detailed_learning_curve(experiment)
