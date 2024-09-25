@@ -7,7 +7,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from matplotlib import rc, rcParams
 from run_experiment import plot_occamnet_learning_curves
-from run_experiment import run_experiment
+#from run_experiment import run_experiment
 
 
 plot_occamnet_learning_curves(run_experiment)
