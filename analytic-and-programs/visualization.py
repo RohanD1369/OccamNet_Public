@@ -6,6 +6,8 @@ import sympy as sp
 import networkx as nx
 import matplotlib.pyplot as plt
 from matplotlib import rc, rcParams
+from run_experiment import plot_occamnet_learning_curves
+from experiment import ExperimentCollection, Experiment
 
 plot_occamnet_learning_curves(run_experiment)
 
